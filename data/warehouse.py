@@ -76,18 +76,24 @@ class DataWarehouse:
         )
         return results
 
-    def update(self) -> dict[str, int]:
-        """Incrementally update warehouse with new data since last stored date.
+    def update(self, force_refresh: bool = False) -> dict[str, int]:
+        """Update warehouse with latest data.
+
+        Args:
+            force_refresh: If True, re-download full history for all tickers
+                to fix dividend adjustment inconsistencies.
 
         Returns dict of ticker -> new rows appended.
         """
         tickers = self.universe.get_unique_tickers() + self.universe.get_all_etfs()
         results: dict[str, int] = {}
+        full_start = self.universe._data["meta"].get("data_start_date", "2018-01-01")
 
         for ticker in tickers:
             path = self._ticker_path(ticker)
-            if not path.exists():
-                df = self.download_ticker(ticker)
+
+            if force_refresh or not path.exists():
+                df = self.download_ticker(ticker, start=full_start)
                 results[ticker] = len(df)
                 continue
 
@@ -103,7 +109,6 @@ class DataWarehouse:
             # Re-download full history to ensure consistent dividend adjustment.
             # yfinance auto_adjust factors change over time, so appending new
             # rows to old adjusted data creates price discontinuities.
-            full_start = self.universe._data["meta"].get("data_start_date", "2018-01-01")
             full_data = self.provider.get_ohlcv(ticker, start=full_start)
             if full_data.empty:
                 results[ticker] = 0

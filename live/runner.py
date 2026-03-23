@@ -66,10 +66,15 @@ class DailyRunner:
         self.feature_store.save_metadata()
         logger.info("bootstrap_complete")
 
-    def update_data(self) -> None:
-        """Incrementally update warehouse and rebuild features."""
-        logger.info("updating_data")
-        updated = self.warehouse.update()
+    def update_data(self, force_refresh: bool = False) -> None:
+        """Update warehouse and rebuild features.
+
+        Args:
+            force_refresh: If True, re-download all data from scratch to fix
+                dividend adjustment inconsistencies.
+        """
+        logger.info("updating_data", force_refresh=force_refresh)
+        updated = self.warehouse.update(force_refresh=force_refresh)
         new_rows = sum(v for v in updated.values() if v > 0)
         logger.info("warehouse_updated", tickers_with_new_data=new_rows)
 

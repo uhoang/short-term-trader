@@ -128,12 +128,17 @@ def load_backtest_result() -> dict | None:
 # ── Shared actions ───────────────────────────────────────────────────────────
 
 
-def _run_scan() -> None:
+def _run_scan(force_refresh: bool = False) -> None:
     from live.runner import DailyRunner
 
     runner = DailyRunner()
-    with st.spinner("Downloading data for new/updated tickers..."):
-        runner.update_data()
+    label = (
+        "Re-downloading all data (fixing price adjustments)..."
+        if force_refresh
+        else "Downloading data for new/updated tickers..."
+    )
+    with st.spinner(label):
+        runner.update_data(force_refresh=force_refresh)
     with st.spinner("Scanning all tickers across 4 strategies..."):
         runner.run_scan()
 
@@ -161,13 +166,23 @@ def _run_backtest(
 
 
 def page_universe() -> None:
-    col_hdr, col_btn = st.columns([4, 1])
+    col_hdr, col_btn, col_refresh = st.columns([4, 1, 1])
     with col_hdr:
         st.markdown("### Stock Universe")
         st.caption("Scan tickers for signals. View features, direction, and rationale.")
     with col_btn:
         if st.button("Run Scan", type="primary", key="universe_scan", use_container_width=True):
             _run_scan()
+            st.rerun()
+    with col_refresh:
+        if st.button(
+            "Force Refresh",
+            type="primary",
+            key="universe_refresh",
+            use_container_width=True,
+            help="Re-download all price data from scratch to fix dividend adjustment issues.",
+        ):
+            _run_scan(force_refresh=True)
             st.rerun()
 
     report = load_scan_report()
