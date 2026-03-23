@@ -132,13 +132,13 @@ def _run_scan(force_refresh: bool = False) -> None:
     from live.runner import DailyRunner
 
     runner = DailyRunner()
-    label = (
-        "Re-downloading all data (fixing price adjustments)..."
-        if force_refresh
-        else "Downloading data for new/updated tickers..."
-    )
-    with st.spinner(label):
-        runner.update_data(force_refresh=force_refresh)
+    if force_refresh:
+        with st.spinner("Re-downloading all data (fixing price adjustments)..."):
+            runner.warehouse.download_all()
+            runner.feature_store.build_all()
+    else:
+        with st.spinner("Downloading data for new/updated tickers..."):
+            runner.update_data()
     with st.spinner("Scanning all tickers across 4 strategies..."):
         runner.run_scan()
 
