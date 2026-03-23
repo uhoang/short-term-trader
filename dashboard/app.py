@@ -18,7 +18,7 @@ def _apply_theme() -> None:
         <style>
         /* Larger tab labels */
         .stTabs [data-baseweb="tab"] {
-            font-size: 1.1rem;
+            font-size: 2rem;
         }
         /* Light (white) text on buttons */
         .stButton > button {
