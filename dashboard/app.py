@@ -46,6 +46,38 @@ BACKTEST_RESULT_FILE = WAREHOUSE_DIR / "backtest_result.json"
 CONFIG_DIR = Path(__file__).parent.parent / "config"
 STRATEGY_PARAMS_FILE = CONFIG_DIR / "strategy_params.json"
 
+DEFAULT_STRATEGY_PARAMS = {
+    "catalyst_capture": {
+        "event_score_min": 0.3,
+        "atr_ratio_min": 1.5,
+        "iv_rank_multiplier": 1.3,
+        "stop_loss_pct": 0.07,
+        "take_profit_pct": 0.15,
+        "max_hold_days": 10,
+    },
+    "volatility_breakout": {
+        "atr_ratio_min": 1.3,
+        "volume_spike_min": 1.5,
+        "bb_width_lookback": 126,
+        "stop_loss_pct": 0.06,
+        "max_hold_days": 10,
+    },
+    "mean_reversion": {
+        "vwap_dev_threshold": -0.02,
+        "rsi_threshold": 32.0,
+        "sector_etf_rsi_min": 45.0,
+        "stop_loss_pct": 0.08,
+        "max_hold_days": 22,
+    },
+    "sector_momentum": {
+        "rebalance_days": 15,
+        "top_n": 3,
+        "bottom_n": 3,
+        "stop_loss_pct": 0.08,
+        "max_hold_days": 45,
+    },
+}
+
 
 # ── Data loaders ─────────────────────────────────────────────────────────────
 
@@ -65,10 +97,19 @@ def load_scan_report() -> dict:
 
 
 def load_strategy_params() -> dict:
+    from copy import deepcopy
+
+    defaults = deepcopy(DEFAULT_STRATEGY_PARAMS)
     if not STRATEGY_PARAMS_FILE.exists():
-        return {}
+        return defaults
     with open(STRATEGY_PARAMS_FILE) as f:
-        return json.load(f)
+        saved = json.load(f)
+    # Merge saved over defaults so missing keys get default values
+    for strategy_id, default_vals in defaults.items():
+        if strategy_id in saved:
+            default_vals.update(saved[strategy_id])
+        defaults[strategy_id] = default_vals
+    return defaults
 
 
 def save_strategy_params(params: dict) -> None:
@@ -907,40 +948,11 @@ def page_settings() -> None:
                 st.rerun()
         with col_reset:
             if st.button("Reset to Defaults", type="primary", use_container_width=True):
+                from copy import deepcopy
+
                 from signals.regime import DEFAULT_REGIME_WEIGHTS
 
-                default_params = {
-                    "catalyst_capture": {
-                        "event_score_min": 0.3,
-                        "atr_ratio_min": 1.5,
-                        "iv_rank_multiplier": 1.3,
-                        "stop_loss_pct": 0.07,
-                        "take_profit_pct": 0.15,
-                        "max_hold_days": 10,
-                    },
-                    "volatility_breakout": {
-                        "atr_ratio_min": 1.3,
-                        "volume_spike_min": 1.5,
-                        "bb_width_lookback": 126,
-                        "stop_loss_pct": 0.06,
-                        "max_hold_days": 10,
-                    },
-                    "mean_reversion": {
-                        "vwap_dev_threshold": -0.02,
-                        "rsi_threshold": 32.0,
-                        "sector_etf_rsi_min": 45.0,
-                        "stop_loss_pct": 0.08,
-                        "max_hold_days": 22,
-                    },
-                    "sector_momentum": {
-                        "rebalance_days": 15,
-                        "top_n": 3,
-                        "bottom_n": 3,
-                        "stop_loss_pct": 0.08,
-                        "max_hold_days": 45,
-                    },
-                }
-                save_strategy_params(default_params)
+                save_strategy_params(deepcopy(DEFAULT_STRATEGY_PARAMS))
                 default_regime = {r: dict(w) for r, w in DEFAULT_REGIME_WEIGHTS.items()}
                 save_regime_weights(default_regime)
                 st.success("Reset to defaults.")
