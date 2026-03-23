@@ -501,22 +501,22 @@ def page_backtest() -> None:
 
     universe = Universe()
 
-    # Controls
-    col_start, col_end = st.columns(2)
-    with col_start:
-        bt_start = st.date_input(
-            "Start", value=date(2023, 1, 1), min_value=date(2018, 1, 1), key="bt_start"
-        )
-    with col_end:
-        bt_end = st.date_input("End", value=date.today(), key="bt_end")
+    # Controls — left half of the page
+    ctrl_col, _ = st.columns([1, 1])
+    with ctrl_col:
+        col_start, col_end = st.columns(2)
+        with col_start:
+            bt_start = st.date_input(
+                "Start", value=date(2023, 1, 1), min_value=date(2018, 1, 1), key="bt_start"
+            )
+        with col_end:
+            bt_end = st.date_input("End", value=date.today(), key="bt_end")
 
-    col_sec, col_tick = st.columns(2)
-    with col_sec:
         all_sectors = universe.get_sectors()
         sel_sectors = st.multiselect(
             "Sectors (empty = all)", all_sectors, default=[], key="bt_sectors"
         )
-    with col_tick:
+
         avail = []
         if sel_sectors:
             for s in sel_sectors:
@@ -533,7 +533,13 @@ def page_backtest() -> None:
     elif sel_sectors:
         scope = ", ".join(sel_sectors)
 
-    if st.button(f"Run Backtest ({scope})", type="primary", key="run_bt", use_container_width=True):
+    btn_col, _ = st.columns([1, 1])
+    with btn_col:
+        run_bt = st.button(
+            f"Run Backtest ({scope})", type="primary", key="run_bt", use_container_width=True
+        )
+
+    if run_bt:
         end_str = str(bt_end) if bt_end < date.today() else None
         _run_backtest(
             str(bt_start), end_str, sectors=sel_sectors or None, tickers=sel_tickers or None
