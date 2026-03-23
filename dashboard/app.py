@@ -808,38 +808,40 @@ def page_settings() -> None:
         strategy_params = params.get(strategy_id, {})
         updated[strategy_id] = {}
 
-        cols = st.columns(3)
-        col_idx = 0
-        for param_name, value in strategy_params.items():
-            meta = PARAM_META.get(param_name)
-            if meta is None:
-                updated[strategy_id][param_name] = value
-                continue
-            display_name, min_val, max_val, step, help_text = meta
-            with cols[col_idx % 3]:
-                if isinstance(value, int) and isinstance(step, int):
-                    new_val = st.number_input(
-                        display_name,
-                        min_value=int(min_val),
-                        max_value=int(max_val),
-                        value=int(value),
-                        step=int(step),
-                        help=help_text,
-                        key=f"{strategy_id}_{param_name}",
-                    )
-                else:
-                    new_val = st.number_input(
-                        display_name,
-                        min_value=float(min_val),
-                        max_value=float(max_val),
-                        value=float(value),
-                        step=float(step),
-                        format="%.4f" if abs(step) < 0.01 else "%.2f",
-                        help=help_text,
-                        key=f"{strategy_id}_{param_name}",
-                    )
-                updated[strategy_id][param_name] = new_val
-            col_idx += 1
+        param_col, _ = st.columns([2, 1])
+        with param_col:
+            cols = st.columns(3)
+            col_idx = 0
+            for param_name, value in strategy_params.items():
+                meta = PARAM_META.get(param_name)
+                if meta is None:
+                    updated[strategy_id][param_name] = value
+                    continue
+                display_name, min_val, max_val, step, help_text = meta
+                with cols[col_idx % 3]:
+                    if isinstance(value, int) and isinstance(step, int):
+                        new_val = st.number_input(
+                            display_name,
+                            min_value=int(min_val),
+                            max_value=int(max_val),
+                            value=int(value),
+                            step=int(step),
+                            help=help_text,
+                            key=f"{strategy_id}_{param_name}",
+                        )
+                    else:
+                        new_val = st.number_input(
+                            display_name,
+                            min_value=float(min_val),
+                            max_value=float(max_val),
+                            value=float(value),
+                            step=float(step),
+                            format="%.4f" if abs(step) < 0.01 else "%.2f",
+                            help=help_text,
+                            key=f"{strategy_id}_{param_name}",
+                        )
+                    updated[strategy_id][param_name] = new_val
+                col_idx += 1
 
     # Regime weights
     st.markdown("---")
@@ -870,20 +872,22 @@ def page_settings() -> None:
         st.markdown(f"**{regime.replace('_', ' ').title()}** -- {regime_desc.get(regime, '')}")
         weights = regime_weights.get(regime, {})
         updated_regime[regime] = {}
-        cols = st.columns(4)
-        for i, (sid, w) in enumerate(weights.items()):
-            with cols[i % 4]:
-                new_w = st.number_input(
-                    short_names.get(sid, sid),
-                    min_value=0.0,
-                    max_value=3.0,
-                    value=float(w),
-                    step=0.1,
-                    format="%.1f",
-                    help=f"{sid} weight in {regime.replace('_', ' ')} regime",
-                    key=f"rw_{regime}_{sid}",
-                )
-                updated_regime[regime][sid] = new_w
+        rw_col, _ = st.columns([2, 1])
+        with rw_col:
+            cols = st.columns(4)
+            for i, (sid, w) in enumerate(weights.items()):
+                with cols[i % 4]:
+                    new_w = st.number_input(
+                        short_names.get(sid, sid),
+                        min_value=0.0,
+                        max_value=3.0,
+                        value=float(w),
+                        step=0.1,
+                        format="%.1f",
+                        help=f"{sid} weight in {regime.replace('_', ' ')} regime",
+                        key=f"rw_{regime}_{sid}",
+                    )
+                    updated_regime[regime][sid] = new_w
 
     # Action buttons
     st.markdown("---")
