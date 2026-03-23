@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3.11 -m venv .venv)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(pip install:*)",
+      "Bash(pytest tests/ -v --tb=short)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(ruff check:*)",
+      "Bash(black --check .)",
+      "Bash(black .)",
+      "Bash(pytest tests/ --tb=short -q)"
+    ]
+  }
+}

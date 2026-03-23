@@ -1,0 +1,101 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "description": "60-stock universe across 4 sectors for volatility algo trading",
+    "min_avg_volume_30d": 2000000,
+    "max_weight_per_position": 0.05,
+    "max_sector_weight": 0.4,
+    "data_start_date": "2018-01-01"
+  },
+  "sectors": {
+    "semiconductors": {
+      "etf_benchmark": "SMH",
+      "tickers": [
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "QCOM",
+        "TXN",
+        "INTC",
+        "MU",
+        "MRVL",
+        "KLAC",
+        "LRCX",
+        "AMAT",
+        "ON",
+        "NXPI",
+        "ADI",
+        "MCHP",
+        "STM",
+        "IFNNY",
+        "MPWR"
+      ]
+    },
+    "software": {
+      "etf_benchmark": "IGV",
+      "tickers": [
+        "MSFT",
+        "CRM",
+        "ADBE",
+        "NOW",
+        "ORCL",
+        "SNPS",
+        "CDNS",
+        "ANSS",
+        "DDOG",
+        "NET",
+        "MDB",
+        "HUBS",
+        "TEAM",
+        "WDAY",
+        "INTU"
+      ]
+    },
+    "cybersecurity": {
+      "etf_benchmark": "CIBR",
+      "tickers": [
+        "CRWD",
+        "PANW",
+        "FTNT",
+        "ZS",
+        "S",
+        "CYBR",
+        "OKTA",
+        "TENB",
+        "QLYS",
+        "RPD",
+        "VRNS",
+        "SAIC",
+        "BAH",
+        "LDOS",
+        "CACI"
+      ]
+    },
+    "energy": {
+      "etf_benchmark": "XLE",
+      "tickers": [
+        "XOM",
+        "CVX",
+        "COP",
+        "SLB",
+        "EOG",
+        "PXD",
+        "MPC",
+        "VLO",
+        "PSX",
+        "OXY",
+        "DVN",
+        "HES",
+        "FANG",
+        "HAL",
+        "BKR",
+        "VST",
+        "CEG",
+        "NRG",
+        "KMI",
+        "WMB",
+        "EQT"
+      ]
+    }
+  }
+}

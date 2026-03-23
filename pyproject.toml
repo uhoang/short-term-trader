@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "short-term-trader"
+version = "0.1.0"
+description = "Volatility-focused algorithmic trading system"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.1",
+    "numpy>=1.25",
+    "yfinance>=0.2.31",
+    "alpaca-py>=0.21",
+    "polygon-api-client>=1.13",
+    "pyarrow>=14.0",
+    "structlog>=23.2",
+    "python-dotenv>=1.0",
+    "feedparser>=6.0",
+    "beautifulsoup4>=4.12",
+    "scipy>=1.11",
+    "matplotlib>=3.8",
+    "optuna>=3.4",
+    "streamlit>=1.28",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "black>=23.9",
+    "ruff>=0.1",
+    "mypy>=1.6",
+    "pre-commit>=3.5",
+    "pandas-stubs>=2.1",
+]
+
+[tool.setuptools.packages.find]
+include = ["scanner*", "signals*", "backtest*", "live*", "dashboard*", "data*", "utils*", "config*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
