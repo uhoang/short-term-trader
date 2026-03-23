@@ -186,8 +186,8 @@ def page_universe() -> None:
                 if ev.get("ticker") == ticker and ev.get("triggered"):
                     d = ev.get("direction", "none")
                     if d and d not in ("none", ""):
-                        directions.add(d.upper())
-            if "LONG" in directions and "SHORT" in directions:
+                        directions.add(d.title())
+            if "Long" in directions and "Short" in directions:
                 status = "Warning: conflicting long/short"
             else:
                 status = "Warning: sector >40% cap or max 15 positions"
@@ -200,13 +200,13 @@ def page_universe() -> None:
             if ev.get("ticker") == ticker and ev.get("triggered"):
                 d = ev.get("direction", "none")
                 if d and d not in ("none", ""):
-                    rec_dirs.add(d.upper())
-        if "LONG" in rec_dirs and "SHORT" in rec_dirs:
-            recommendation = "LONG/SHORT"
-        elif "LONG" in rec_dirs:
-            recommendation = "LONG"
-        elif "SHORT" in rec_dirs:
-            recommendation = "SHORT"
+                    rec_dirs.add(d.title())
+        if "Long" in rec_dirs and "Short" in rec_dirs:
+            recommendation = "Long/Short"
+        elif "Long" in rec_dirs:
+            recommendation = "Long"
+        elif "Short" in rec_dirs:
+            recommendation = "Short"
         else:
             recommendation = ""
 
@@ -235,7 +235,7 @@ def page_universe() -> None:
         sectors = ["All"] + sorted(df["Sector"].unique().tolist())
         sel_sector = st.selectbox("Sector", sectors, key="u_sector")
     with col_f2:
-        sel_dir = st.selectbox("Direction", ["All", "LONG", "SHORT"], key="u_dir")
+        sel_dir = st.selectbox("Direction", ["All", "Long", "Short"], key="u_dir")
     with col_f3:
         show_signals = st.checkbox("Signals only", key="u_signals_only")
 
@@ -273,7 +273,7 @@ def page_universe() -> None:
             direction = ev.get("direction", "none")
 
             if triggered:
-                dir_label = direction.upper() if direction != "none" else ""
+                dir_label = direction.title() if direction != "none" else ""
                 label = f"+ {strategy} | {dir_label}" if dir_label else f"+ {strategy}"
             else:
                 label = f"- {strategy} | No Signal"
@@ -282,7 +282,7 @@ def page_universe() -> None:
 
             with st.expander(label, expanded=triggered):
                 if triggered and direction not in ("none", ""):
-                    st.markdown(f"**Recommendation: {direction.upper()}**")
+                    st.markdown(f"**Recommendation: {direction.title()}**")
 
                 conditions = ev.get("conditions", [])
                 if conditions:
@@ -375,7 +375,7 @@ def page_signals() -> None:
         sig_rows.append(
             {
                 "Ticker": ticker,
-                "Direction": sig.get("direction", "").upper(),
+                "Direction": sig.get("direction", "").title(),
                 "Strategy": sig.get("strategy_id", "").replace("_", " ").title(),
                 "Strength": sig.get("strength", 0),
                 "Sector": (ev.get("sector", "") if ev else "").title(),
@@ -409,14 +409,14 @@ def page_signals() -> None:
     }
     for strat in sig_df["Strategy"].unique():
         s_df = sig_df[sig_df["Strategy"] == strat]
-        longs = len(s_df[s_df["Direction"] == "LONG"])
-        shorts = len(s_df[s_df["Direction"] == "SHORT"])
+        longs = len(s_df[s_df["Direction"] == "Long"])
+        shorts = len(s_df[s_df["Direction"] == "Short"])
         tickers_str = ", ".join(s_df["Ticker"].tolist())
         parts = []
         if longs:
-            parts.append(f"{longs} LONG")
+            parts.append(f"{longs} Long")
         if shorts:
-            parts.append(f"{shorts} SHORT")
+            parts.append(f"{shorts} Short")
         st.markdown(f"**{strat}** -- {strategy_desc.get(strat, '')}")
         st.write(f"{' | '.join(parts)} -- {tickers_str}")
 
@@ -433,7 +433,7 @@ def page_signals() -> None:
         ticker = sig.get("ticker", "")
         raw_strategy = sig.get("strategy_id", "")
         strategy = raw_strategy.replace("_", " ").title()
-        direction = sig.get("direction", "").upper()
+        direction = sig.get("direction", "").title()
         strength = sig.get("strength", 0)
 
         ev = next(
