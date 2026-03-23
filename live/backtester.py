@@ -167,6 +167,7 @@ def run_historical_backtest(
         regime_series = pd.Series(dtype=str)
 
     # Weight each signal by regime
+    raw_count = len(all_signals)
     weighted_signals = []
     for sig in all_signals:
         sig_date = pd.Timestamp(sig.timestamp).normalize()
@@ -190,7 +191,7 @@ def run_historical_backtest(
     logger.info(
         "signals_after_regime_weighting",
         count=len(all_signals),
-        dropped=len(weighted_signals) != len(all_signals),
+        dropped=raw_count - len(all_signals),
     )
 
     if not all_signals:
