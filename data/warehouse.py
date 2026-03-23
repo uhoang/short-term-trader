@@ -94,24 +94,28 @@ class DataWarehouse:
             existing = pd.read_parquet(path)
             existing = existing[~existing.index.duplicated(keep="last")]
             last_date = existing.index.max()
-            start = (last_date + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+            start_next = (last_date + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
-            if start >= datetime.now().strftime("%Y-%m-%d"):
+            if start_next >= datetime.now().strftime("%Y-%m-%d"):
                 results[ticker] = 0
                 continue
 
-            new_data = self.provider.get_ohlcv(ticker, start=start)
-            if new_data.empty:
+            # Re-download full history to ensure consistent dividend adjustment.
+            # yfinance auto_adjust factors change over time, so appending new
+            # rows to old adjusted data creates price discontinuities.
+            full_start = self.universe._data["meta"].get("data_start_date", "2018-01-01")
+            full_data = self.provider.get_ohlcv(ticker, start=full_start)
+            if full_data.empty:
                 results[ticker] = 0
                 continue
 
-            new_data = new_data[~new_data.index.duplicated(keep="last")]
-            combined = pd.concat([existing, new_data])
-            combined = combined[~combined.index.duplicated(keep="last")]
-            combined.sort_index(inplace=True)
-            combined.to_parquet(path)
-            results[ticker] = len(new_data)
-            logger.info("updated_ticker", ticker=ticker, new_rows=len(new_data))
+            full_data = full_data[~full_data.index.duplicated(keep="last")]
+            full_data.sort_index(inplace=True)
+            new_rows = len(full_data) - len(existing)
+            full_data.to_parquet(path)
+            results[ticker] = max(new_rows, 0)
+            if new_rows > 0:
+                logger.info("updated_ticker", ticker=ticker, new_rows=new_rows)
 
         return results
 
