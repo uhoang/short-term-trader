@@ -1022,7 +1022,10 @@ def main() -> None:
 
     # Sidebar
     with st.sidebar:
-        st.markdown("## Volatility Algo Trader")
+        st.markdown(
+            '<p style="font-size:2em; font-weight:bold; margin:0;">Volatility Algo Trader</p>',
+            unsafe_allow_html=True,
+        )
         st.markdown("---")
         st.markdown(
             "**Quick Start**\n"
