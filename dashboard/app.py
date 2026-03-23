@@ -148,7 +148,7 @@ def page_universe() -> None:
         if ticker not in ticker_data:
             ticker_data[ticker] = {
                 "Ticker": ticker,
-                "Sector": ev.get("sector", ""),
+                "Sector": ev.get("sector", "").title(),
                 "Close": None,
                 "VWAP": None,
                 "RSI": None,
@@ -168,7 +168,9 @@ def page_universe() -> None:
             ticker_data[ticker]["HV(20)"] = feats.get("hv_20")
             ticker_data[ticker]["Event Score"] = feats.get("event_score")
         if ev.get("triggered"):
-            ticker_data[ticker]["Signals"].append(ev.get("strategy_id", ""))
+            ticker_data[ticker]["Signals"].append(
+                ev.get("strategy_id", "").replace("_", " ").title()
+            )
 
     rows = []
     for td in sorted(ticker_data.values(), key=lambda x: x["Ticker"]):
@@ -265,7 +267,7 @@ def page_universe() -> None:
     if sel_ticker:
         ticker_evals = [e for e in evaluations if e.get("ticker") == sel_ticker]
         for ev in ticker_evals:
-            strategy = ev.get("strategy_id", "unknown")
+            strategy = ev.get("strategy_id", "unknown").replace("_", " ").title()
             triggered = ev.get("triggered", False)
             weight = ev.get("regime_weight", 1.0)
             direction = ev.get("direction", "none")
@@ -274,7 +276,7 @@ def page_universe() -> None:
                 dir_label = direction.upper() if direction != "none" else ""
                 label = f"+ {strategy} | {dir_label}" if dir_label else f"+ {strategy}"
             else:
-                label = f"- {strategy} | no signal"
+                label = f"- {strategy} | No Signal"
             if weight == 0:
                 label += " | DISABLED"
 
@@ -374,9 +376,9 @@ def page_signals() -> None:
             {
                 "Ticker": ticker,
                 "Direction": sig.get("direction", "").upper(),
-                "Strategy": sig.get("strategy_id", ""),
+                "Strategy": sig.get("strategy_id", "").replace("_", " ").title(),
                 "Strength": sig.get("strength", 0),
-                "Sector": ev.get("sector", "") if ev else "",
+                "Sector": (ev.get("sector", "") if ev else "").title(),
                 "Close": feats.get("close"),
                 "RSI": feats.get("rsi_14"),
                 "VWAP Dev": feats.get("vwap_dev"),
@@ -400,10 +402,10 @@ def page_signals() -> None:
     st.markdown("---")
     st.markdown("#### By Strategy")
     strategy_desc = {
-        "catalyst_capture": "Event-driven entries before earnings/catalysts with elevated vol",
-        "volatility_breakout": "BB squeeze breakouts confirmed by volume spike",
-        "mean_reversion": "Oversold bounces (low RSI + below VWAP) in healthy sectors",
-        "sector_momentum": "Long top / short bottom momentum-ranked stocks per sector",
+        "Catalyst Capture": "Event-driven entries before earnings/catalysts with elevated vol",
+        "Volatility Breakout": "BB squeeze breakouts confirmed by volume spike",
+        "Mean Reversion": "Oversold bounces (low RSI + below VWAP) in healthy sectors",
+        "Sector Momentum": "Long top / short bottom momentum-ranked stocks per sector",
     }
     for strat in sig_df["Strategy"].unique():
         s_df = sig_df[sig_df["Strategy"] == strat]
@@ -429,7 +431,8 @@ def page_signals() -> None:
     st.markdown("#### Why These Signals Fired")
     for sig in signals_list:
         ticker = sig.get("ticker", "")
-        strategy = sig.get("strategy_id", "")
+        raw_strategy = sig.get("strategy_id", "")
+        strategy = raw_strategy.replace("_", " ").title()
         direction = sig.get("direction", "").upper()
         strength = sig.get("strength", 0)
 
@@ -438,7 +441,7 @@ def page_signals() -> None:
                 e
                 for e in evaluations
                 if e.get("ticker") == ticker
-                and e.get("strategy_id") == strategy
+                and e.get("strategy_id") == raw_strategy
                 and e.get("triggered")
             ),
             None,
