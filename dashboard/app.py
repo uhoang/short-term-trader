@@ -8,72 +8,25 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-# ── Theme definitions ────────────────────────────────────────────────────────
-
-THEMES = {
-    "Light": {
-        "bg": "#ffffff",
-        "secondary_bg": "#f0f2f6",
-        "text": "#262730",
-        "card_bg": "#f8f9fa",
-        "border": "#e0e0e0",
-    },
-    "Dark": {
-        "bg": "#0e1117",
-        "secondary_bg": "#262730",
-        "text": "#fafafa",
-        "card_bg": "#1e1e2e",
-        "border": "#3a3a4a",
-    },
-}
+# ── Light theme styling ──────────────────────────────────────────────────────
 
 
-def _apply_theme(theme_name: str) -> None:
-    """Inject CSS to override Streamlit's default theme."""
-    if theme_name == "System":
-        # Let Streamlit/browser handle it — no CSS override
-        return
-    t = THEMES[theme_name]
+def _apply_theme() -> None:
+    """Inject CSS for light theme with larger tab names and light button text."""
     st.markdown(
-        f"""
+        """
         <style>
-        /* Main backgrounds */
-        .stApp, [data-testid="stAppViewContainer"] {{
-            background-color: {t["bg"]};
-            color: {t["text"]};
-        }}
-        [data-testid="stSidebar"] {{
-            background-color: {t["secondary_bg"]};
-        }}
-        [data-testid="stHeader"] {{
-            background-color: {t["bg"]};
-        }}
-        /* Metric cards */
-        [data-testid="stMetric"],
-        [data-testid="stMetricValue"],
-        [data-testid="stMetricLabel"] {{
-            color: {t["text"]};
-        }}
-        /* Tabs */
-        .stTabs [data-baseweb="tab-list"] {{
-            background-color: {t["bg"]};
-        }}
-        .stTabs [data-baseweb="tab"] {{
-            color: {t["text"]};
-        }}
-        /* Dataframes */
-        [data-testid="stDataFrame"] {{
-            background-color: {t["card_bg"]};
-        }}
-        /* Text elements */
-        .stMarkdown, .stText, h1, h2, h3, h4, p, span, label {{
-            color: {t["text"]} !important;
-        }}
-        /* Expander */
-        [data-testid="stExpander"] {{
-            background-color: {t["card_bg"]};
-            border-color: {t["border"]};
-        }}
+        /* Larger tab labels */
+        .stTabs [data-baseweb="tab"] {
+            font-size: 1.1rem;
+        }
+        /* Light (white) text on buttons */
+        .stButton > button {
+            color: #ffffff !important;
+        }
+        .stDownloadButton > button {
+            color: #ffffff !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1056,13 +1009,6 @@ def main() -> None:
     with st.sidebar:
         st.markdown("## Volatility Algo Trader")
         st.markdown("---")
-        theme = st.selectbox(
-            "Theme",
-            ["System", "Light", "Dark"],
-            index=0,
-            key="theme_selector",
-        )
-        st.markdown("---")
         st.markdown(
             "**Quick Start**\n"
             "1. Go to **Watchlist** to manage tickers\n"
@@ -1082,8 +1028,8 @@ def main() -> None:
             m = bt.get("metrics", {})
             st.caption(f"Sharpe: {m.get('sharpe', 0):.2f} | Trades: {m.get('total_trades', 0)}")
 
-    # Apply selected theme
-    _apply_theme(theme)
+    # Apply light theme styling
+    _apply_theme()
 
     # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
