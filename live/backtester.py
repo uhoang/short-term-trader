@@ -20,6 +20,7 @@ from signals.catalyst import CatalystCapture
 from signals.config_loader import build_config, load_strategy_configs
 from signals.mean_reversion import MeanReversion
 from signals.momentum_pairs import SectorMomentumPairs
+from signals.regime import RegimeDetector, load_regime_weights
 
 logger = structlog.get_logger(__name__)
 
@@ -144,11 +145,57 @@ def run_historical_backtest(
             signals = momentum.scan_sector(sector_features, sector)
             all_signals.extend(signals)
 
-    logger.info("signals_generated", count=len(all_signals))
+    logger.info("signals_generated_raw", count=len(all_signals))
+
+    # ── Apply regime weights to signals ──────────────────────────────────────
+    # Detect regime for each signal date using a representative volatility series
+    # (use SPY-like proxy: average HV20 across all loaded tickers)
+    regime_detector = RegimeDetector()
+    regime_weights = load_regime_weights()
+
+    # Build a combined volatility series from all features
+    hv_frames = []
+    for feat_df in features.values():
+        if "hv_20" in feat_df.columns:
+            hv_frames.append(feat_df["hv_20"])
+    if hv_frames:
+        avg_hv = pd.concat(hv_frames, axis=1).mean(axis=1).dropna()
+        regime_series = regime_detector.predict(
+            returns=avg_hv.pct_change().fillna(0), volatility=avg_hv
+        )
+    else:
+        regime_series = pd.Series(dtype=str)
+
+    # Weight each signal by regime
+    weighted_signals = []
+    for sig in all_signals:
+        sig_date = pd.Timestamp(sig.timestamp).normalize()
+        # Find the regime on the signal date
+        if not regime_series.empty and sig_date in regime_series.index:
+            regime = regime_series.loc[sig_date]
+        else:
+            regime = "normal"
+
+        strategy_weights = regime_weights.get(regime, regime_weights.get("normal", {}))
+        weight = strategy_weights.get(sig.strategy_id, 1.0)
+
+        if weight == 0:
+            continue  # Strategy disabled in this regime
+
+        # Scale signal strength by regime weight
+        sig.strength = min(sig.strength * weight, 1.0)
+        weighted_signals.append(sig)
+
+    all_signals = weighted_signals
+    logger.info(
+        "signals_after_regime_weighting",
+        count=len(all_signals),
+        dropped=len(weighted_signals) != len(all_signals),
+    )
 
     if not all_signals:
-        logger.warning("no_signals_generated_for_backtest")
-        return {"error": "No signals generated in the date range."}
+        logger.warning("no_signals_after_regime_weighting")
+        return {"error": "No signals survived regime weighting in the date range."}
 
     # Run backtest
     engine = BacktestEngine(BacktestConfig(init_cash=1_000_000))
