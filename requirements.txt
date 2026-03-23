@@ -1,3 +1,4 @@
+# editable install for local module imports
 -e .
 pandas>=2.1
 numpy>=1.25
