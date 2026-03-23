@@ -92,6 +92,7 @@ class DataWarehouse:
                 continue
 
             existing = pd.read_parquet(path)
+            existing = existing[~existing.index.duplicated(keep="last")]
             last_date = existing.index.max()
             start = (last_date + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -104,6 +105,7 @@ class DataWarehouse:
                 results[ticker] = 0
                 continue
 
+            new_data = new_data[~new_data.index.duplicated(keep="last")]
             combined = pd.concat([existing, new_data])
             combined = combined[~combined.index.duplicated(keep="last")]
             combined.sort_index(inplace=True)
