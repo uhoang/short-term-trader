@@ -887,27 +887,20 @@ def page_settings() -> None:
 
     # Action buttons
     st.markdown("---")
-    col_save, col_scan, col_bt = st.columns(3)
-    with col_save:
-        if st.button("Save", type="primary", use_container_width=True):
-            save_strategy_params(updated)
-            save_regime_weights(updated_regime)
-            st.success("Saved.")
-    with col_scan:
-        if st.button("Save & Scan", use_container_width=True):
-            save_strategy_params(updated)
-            save_regime_weights(updated_regime)
-            _run_scan()
-            st.rerun()
-    with col_bt:
-        from datetime import date
-
-        bt_date = st.date_input("From", value=date(2023, 1, 1), key="settings_bt")
-        if st.button("Save & Backtest", use_container_width=True):
-            save_strategy_params(updated)
-            save_regime_weights(updated_regime)
-            _run_backtest(str(bt_date), None)
-            st.rerun()
+    btn_col, _ = st.columns([1, 1])
+    with btn_col:
+        col_save, col_scan = st.columns(2)
+        with col_save:
+            if st.button("Save", type="primary", use_container_width=True):
+                save_strategy_params(updated)
+                save_regime_weights(updated_regime)
+                st.success("Saved.")
+        with col_scan:
+            if st.button("Save & Scan", type="primary", use_container_width=True):
+                save_strategy_params(updated)
+                save_regime_weights(updated_regime)
+                _run_scan()
+                st.rerun()
 
 
 # ── Tab: Watchlist ───────────────────────────────────────────────────────────
