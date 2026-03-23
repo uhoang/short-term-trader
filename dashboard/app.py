@@ -18,7 +18,13 @@ def _apply_theme() -> None:
         <style>
         /* Larger tab labels */
         .stTabs [data-baseweb="tab"] {
-            font-size: 2rem;
+            font-size: 2rem !important;
+        }
+        .stTabs [data-baseweb="tab"] p,
+        .stTabs [data-baseweb="tab"] span,
+        .stTabs [data-baseweb="tab-panel"],
+        .stTabs button[role="tab"] {
+            font-size: 2rem !important;
         }
         /* Light (white) text on buttons */
         .stButton > button {
