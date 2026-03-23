@@ -1014,7 +1014,7 @@ def page_watchlist() -> None:
 
 def main() -> None:
     st.set_page_config(
-        page_title="Volatility Signal",
+        page_title="Volatility Signals",
         page_icon="chart_with_upwards_trend",
         layout="wide",
         initial_sidebar_state="collapsed",
@@ -1023,7 +1023,7 @@ def main() -> None:
     # Sidebar
     with st.sidebar:
         st.markdown(
-            '<p style="font-size:2em; font-weight:bold; margin:0;">Volatility Signal</p>',
+            '<p style="font-size:2em; font-weight:bold; margin:0;">Volatility Signals</p>',
             unsafe_allow_html=True,
         )
         st.markdown("---")
