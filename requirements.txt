@@ -1,0 +1,14 @@
+pandas>=2.1
+numpy>=1.25
+yfinance>=0.2.31
+alpaca-py>=0.21
+polygon-api-client>=1.13
+pyarrow>=14.0
+structlog>=23.2
+python-dotenv>=1.0
+feedparser>=6.0
+beautifulsoup4>=4.12
+scipy>=1.11
+matplotlib>=3.8
+optuna>=3.4
+streamlit>=1.28
