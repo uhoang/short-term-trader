@@ -889,7 +889,7 @@ def page_settings() -> None:
     st.markdown("---")
     btn_col, _ = st.columns([1, 1])
     with btn_col:
-        col_save, col_scan = st.columns(2)
+        col_save, col_scan, col_reset = st.columns(3)
         with col_save:
             if st.button("Save", type="primary", use_container_width=True):
                 save_strategy_params(updated)
@@ -900,6 +900,46 @@ def page_settings() -> None:
                 save_strategy_params(updated)
                 save_regime_weights(updated_regime)
                 _run_scan()
+                st.rerun()
+        with col_reset:
+            if st.button("Reset to Defaults", type="primary", use_container_width=True):
+                from signals.regime import DEFAULT_REGIME_WEIGHTS
+
+                default_params = {
+                    "catalyst_capture": {
+                        "event_score_min": 0.3,
+                        "atr_ratio_min": 1.5,
+                        "iv_rank_multiplier": 1.3,
+                        "stop_loss_pct": 0.07,
+                        "take_profit_pct": 0.15,
+                        "max_hold_days": 10,
+                    },
+                    "volatility_breakout": {
+                        "atr_ratio_min": 1.3,
+                        "volume_spike_min": 1.5,
+                        "bb_width_lookback": 126,
+                        "stop_loss_pct": 0.06,
+                        "max_hold_days": 10,
+                    },
+                    "mean_reversion": {
+                        "vwap_dev_threshold": -0.02,
+                        "rsi_threshold": 32.0,
+                        "sector_etf_rsi_min": 45.0,
+                        "stop_loss_pct": 0.08,
+                        "max_hold_days": 22,
+                    },
+                    "sector_momentum": {
+                        "rebalance_days": 15,
+                        "top_n": 3,
+                        "bottom_n": 3,
+                        "stop_loss_pct": 0.08,
+                        "max_hold_days": 45,
+                    },
+                }
+                save_strategy_params(default_params)
+                default_regime = {r: dict(w) for r, w in DEFAULT_REGIME_WEIGHTS.items()}
+                save_regime_weights(default_regime)
+                st.success("Reset to defaults.")
                 st.rerun()
 
 
