@@ -1041,7 +1041,7 @@ def page_watchlist() -> None:
     with col_b2:
         st.write("")
         st.write("")
-        if st.button("Add Sector", key="ns_btn") and ns and ne:
+        if st.button("Add Sector", key="ns_btn", type="primary") and ns and ne:
             if universe.add_sector(ns, ne):
                 universe.save()
                 st.success(f"Added {ns} with ETF {ne.upper()}.")
@@ -1057,7 +1057,7 @@ def page_watchlist() -> None:
     bt = st.text_area(
         "Tickers (comma or space separated)", placeholder="TSLA, META, GOOG", key="bulk_t"
     )
-    if st.button("Add All", key="bulk_btn") and bt:
+    if st.button("Add All", key="bulk_btn", type="primary") and bt:
         import re
 
         to_add = [t.strip().upper() for t in re.split(r"[,\s]+", bt) if t.strip()]
