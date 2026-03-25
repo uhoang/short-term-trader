@@ -1,4 +1,7 @@
-"""Streamlit dashboard for signal analysis, backtesting, and strategy tuning."""
+"""Streamlit dashboard for signal analysis, backtesting, and strategy tuning.
+
+v2.1 - 2026-03-24
+"""
 
 from __future__ import annotations
 
