@@ -63,6 +63,7 @@ class StrategyOptimizer:
         param_space: dict[str, dict[str, Any]],
         n_trials: int = 50,
         seed: int = 42,
+        progress_callback: callable | None = None,
     ) -> dict[str, Any]:
         """Run Optuna optimization with walk-forward CV.
 
@@ -73,6 +74,8 @@ class StrategyOptimizer:
             param_space: Dict of param_name -> {low, high, step}
             n_trials: Number of Optuna trials
             seed: Random seed for reproducibility
+            progress_callback: Optional callback(trial_number, n_trials, best_value)
+                called after each trial completes.
 
         Returns:
             Dict with best_params, best_sharpe, study_results.
@@ -135,7 +138,18 @@ class StrategyOptimizer:
 
         sampler = optuna.samplers.TPESampler(seed=seed)
         study = optuna.create_study(direction="maximize", sampler=sampler)
-        study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+
+        optuna_callbacks = []
+        if progress_callback:
+
+            def _optuna_cb(study: object, trial: object) -> None:
+                progress_callback(trial.number + 1, n_trials, study.best_value)
+
+            optuna_callbacks.append(_optuna_cb)
+
+        study.optimize(
+            objective, n_trials=n_trials, show_progress_bar=False, callbacks=optuna_callbacks
+        )
 
         best = study.best_trial
         logger.info(

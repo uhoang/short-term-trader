@@ -177,6 +177,7 @@ class CMAJointOptimizer:
         fitness_fn: callable,
         max_generations: int = 100,
         popsize: int | None = None,
+        progress_callback: callable | None = None,
     ) -> dict[str, Any]:
         """Run CMA-ES optimization.
 
@@ -237,6 +238,10 @@ class CMAJointOptimizer:
                 self._best_vector = np.array(solutions[np.argmin(fitnesses)])
 
             generation += 1
+
+            if progress_callback:
+                progress_callback(generation, max_generations, self._best_fitness)
+
             if generation % 10 == 0:
                 logger.info(
                     "cma_progress",

@@ -59,6 +59,7 @@ class OptunaRunner:
         prices: dict[str, object],
         features: dict[str, object],
         n_trials: int = 50,
+        progress_callback: callable | None = None,
     ) -> OptimizationResult:
         """Run optimization for a single strategy.
 
@@ -68,6 +69,7 @@ class OptunaRunner:
             prices: Dict of ticker -> OHLCV DataFrame
             features: Dict of ticker -> features DataFrame
             n_trials: Number of Optuna trials
+            progress_callback: Optional callback(trial_number, n_trials, best_value)
 
         Returns:
             OptimizationResult with best params and metadata
@@ -92,6 +94,7 @@ class OptunaRunner:
             features=features,
             param_space=param_space,
             n_trials=n_trials,
+            progress_callback=progress_callback,
         )
 
         # Check robustness (need to re-run with study access)
