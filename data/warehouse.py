@@ -87,7 +87,8 @@ class DataWarehouse:
         """
         tickers = self.universe.get_unique_tickers() + self.universe.get_all_etfs()
         results: dict[str, int] = {}
-        full_start = self.universe._data["meta"].get("data_start_date", "2018-01-01")
+        meta = self.universe._data.get("metadata", self.universe._data.get("meta", {}))
+        full_start = meta.get("data_start_date", "2018-01-01")
 
         for ticker in tickers:
             path = self._ticker_path(ticker)
