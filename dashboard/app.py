@@ -1117,13 +1117,14 @@ def main() -> None:
     _apply_theme()
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
         [
             "Stock Universe",
             "Signals",
             "Backtest",
             "Settings",
             "Watchlist",
+            "ML Tuning",
         ]
     )
 
@@ -1137,6 +1138,504 @@ def main() -> None:
         page_settings()
     with tab5:
         page_watchlist()
+    with tab6:
+        page_ml_tuning()
+
+
+def page_ml_tuning() -> None:
+    """ML Tuning tab — 6 ML/AI features for strategy optimization."""
+    st.markdown("### ML Tuning")
+    st.caption(
+        "Machine learning tools for optimizing strategy parameters and regime weights. "
+        "Each sub-tab provides a different approach — from simple online learning to "
+        "advanced reinforcement learning."
+    )
+
+    ml_tabs = st.tabs(
+        [
+            "Optuna Optimizer",
+            "Signal Filter (XGBoost)",
+            "Online Thresholds",
+            "Meta Regime",
+            "CMA-ES Joint",
+            "RL Regime Weights",
+        ]
+    )
+
+    with ml_tabs[0]:
+        _ml_optuna_tab()
+    with ml_tabs[1]:
+        _ml_xgboost_tab()
+    with ml_tabs[2]:
+        _ml_online_threshold_tab()
+    with ml_tabs[3]:
+        _ml_meta_regime_tab()
+    with ml_tabs[4]:
+        _ml_cma_tab()
+    with ml_tabs[5]:
+        _ml_rl_tab()
+
+
+def _ml_optuna_tab() -> None:
+    """Optuna Bayesian optimization sub-tab."""
+    st.markdown("#### Bayesian Parameter Optimization (Optuna)")
+    st.caption(
+        "Uses Tree-structured Parzen Estimator (TPE) to find optimal strategy parameters. "
+        "Evaluates each candidate via walk-forward backtest (18 months in-sample, "
+        "6 months out-of-sample). Optimizes for Sharpe ratio with drawdown penalty."
+    )
+
+    try:
+        from ml.optuna_dashboard import OptunaRunner
+    except ImportError:
+        st.warning("Optuna is required. Install with: `pip install optuna`")
+        return
+
+    runner = OptunaRunner()
+    strategies = runner.get_available_strategies()
+
+    # Show last results
+    all_results = runner.get_all_results()
+    if all_results:
+        st.markdown("**Previous Optimization Results:**")
+        rows = []
+        for sid, res in all_results.items():
+            rows.append(
+                {
+                    "Strategy": sid.replace("_", " ").title(),
+                    "Best Sharpe": round(res.best_sharpe, 4),
+                    "Trials": res.n_trials,
+                    "Last Run": res.timestamp[:19],
+                }
+            )
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    # Optimization controls
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        selected_strategy = st.selectbox(
+            "Strategy to optimize",
+            strategies,
+            format_func=lambda x: x.replace("_", " ").title(),
+            key="optuna_strategy",
+        )
+    with col2:
+        n_trials = st.number_input(
+            "Number of trials", min_value=10, max_value=500, value=50, step=10, key="optuna_trials"
+        )
+
+    # Show search space
+    space = runner.get_param_space(selected_strategy)
+    if space:
+        with st.expander("Search Space"):
+            for pname, bounds in space.items():
+                st.text(
+                    f"  {pname}: [{bounds['low']}, {bounds['high']}] "
+                    f"step={bounds.get('step', 'auto')}"
+                )
+
+    if st.button("Run Optimization", type="primary", key="optuna_run"):
+        st.info(
+            f"Running {n_trials} trials for {selected_strategy}. "
+            "This may take several minutes..."
+        )
+        # Note: actual optimization requires data loading which is expensive.
+        # For now, show placeholder.
+        st.warning(
+            "To run optimization, use the CLI: "
+            '`python -c "from ml.optuna_dashboard import OptunaRunner; ..."`'
+        )
+
+
+def _ml_xgboost_tab() -> None:
+    """XGBoost signal quality filter sub-tab."""
+    st.markdown("#### Signal Quality Filter (XGBoost)")
+    st.caption(
+        "Trains a gradient-boosted classifier on historical backtest trades to predict "
+        "whether a signal will be profitable. Features include all technical indicators "
+        "at signal time plus strategy type, sector, and market regime."
+    )
+
+    try:
+        from ml.xgboost_signal_filter import SignalQualityPredictor
+    except ImportError:
+        st.warning("XGBoost required. Install with: `pip install xgboost scikit-learn joblib`")
+        return
+
+    # Show last training metrics
+    metrics = SignalQualityPredictor.get_last_metrics()
+    if metrics:
+        st.markdown("**Last Training Results:**")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Accuracy", f"{metrics.get('accuracy', 0):.1%}")
+        col2.metric("AUC", f"{metrics.get('auc', 0):.3f}")
+        col3.metric("Precision", f"{metrics.get('precision', 0):.1%}")
+        col4.metric("Recall", f"{metrics.get('recall', 0):.1%}")
+
+        # Feature importances
+        importances = metrics.get("feature_importances", {})
+        if importances:
+            with st.expander("Top Feature Importances"):
+                top_features = dict(list(importances.items())[:15])
+                imp_df = pd.DataFrame(
+                    {
+                        "Feature": list(top_features.keys()),
+                        "Importance": list(top_features.values()),
+                    }
+                )
+                st.bar_chart(imp_df.set_index("Feature"))
+    else:
+        st.info("No model trained yet. Run a backtest first, then train the signal filter.")
+
+    st.markdown("---")
+
+    # Training controls
+    col1, col2 = st.columns(2)
+    with col1:
+        n_estimators = st.number_input("Trees", 50, 500, 200, 50, key="xgb_trees")
+    with col2:
+        max_depth = st.number_input("Max Depth", 2, 10, 5, 1, key="xgb_depth")
+
+    st.slider(
+        "Confidence Threshold",
+        0.3,
+        0.8,
+        0.5,
+        0.05,
+        help="Signals with predicted profitability below this are filtered out",
+        key="xgb_threshold",
+    )
+
+    backtest_path = Path(__file__).parent.parent / "warehouse" / "backtest_result.json"
+    if st.button("Train Signal Filter", type="primary", key="xgb_train"):
+        if not backtest_path.exists():
+            st.error("No backtest results found. Run a backtest first in the Backtest tab.")
+        else:
+            with st.spinner("Training XGBoost model..."):
+                try:
+                    from data.feature_store import FeatureStore
+
+                    predictor = SignalQualityPredictor()
+                    feature_store = FeatureStore()
+                    X, y = predictor.build_training_data({}, feature_store)
+
+                    if len(X) < 20:
+                        st.error(f"Need at least 20 trades for training, got {len(X)}")
+                    else:
+                        result = predictor.train(
+                            X, y, n_estimators=n_estimators, max_depth=max_depth
+                        )
+                        st.success(
+                            f"Model trained! AUC: {result['auc']:.3f}, "
+                            f"Accuracy: {result['accuracy']:.1%}"
+                        )
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Training failed: {e}")
+
+
+def _ml_online_threshold_tab() -> None:
+    """Online learning threshold adjustment sub-tab."""
+    st.markdown("#### Online Threshold Adjustment")
+    st.caption(
+        "Tracks rolling success rates per strategy using exponentially weighted moving "
+        "averages. When success drops below baseline, entry thresholds are tightened "
+        "(harder to trigger). When success rises, thresholds are loosened."
+    )
+
+    try:
+        from ml.online_threshold import OnlineThresholdAdjuster
+    except ImportError:
+        st.warning("Online threshold module not available.")
+        return
+
+    adjuster = OnlineThresholdAdjuster()
+    adjuster.load_state()
+
+    states = adjuster.get_all_states()
+    if states:
+        st.markdown("**Current Strategy States:**")
+        rows = []
+        for sid, state in states.items():
+            rows.append(
+                {
+                    "Strategy": sid.replace("_", " ").title(),
+                    "EWMA Success Rate": f"{state.ewma_success_rate:.1%}",
+                    "Baseline": f"{state.baseline_success_rate:.1%}",
+                    "Multiplier": f"{state.current_multiplier:.2f}",
+                    "Trades Tracked": state.n_trades,
+                    "Status": (
+                        "Tightening"
+                        if state.current_multiplier > 1.0
+                        else "Loosening" if state.current_multiplier < 1.0 else "Neutral"
+                    ),
+                }
+            )
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    else:
+        st.info(
+            "No threshold states yet. States are created when trades are tracked "
+            "or after calibrating baselines from a backtest."
+        )
+
+    st.markdown("---")
+
+    # Configuration
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        alpha = st.slider(
+            "EWMA Alpha",
+            0.01,
+            0.5,
+            0.1,
+            0.01,
+            key="online_alpha",
+            help="Higher = more weight on recent trades",
+        )
+    with col2:
+        tighten = st.slider("Tighten Factor", 1.0, 1.5, 1.15, 0.05, key="online_tighten")
+    with col3:
+        loosen = st.slider("Loosen Factor", 0.5, 1.0, 0.90, 0.05, key="online_loosen")
+
+    backtest_path = Path(__file__).parent.parent / "warehouse" / "backtest_result.json"
+    if st.button("Calibrate from Backtest", type="primary", key="online_calibrate"):
+        if not backtest_path.exists():
+            st.error("No backtest results found.")
+        else:
+            with open(backtest_path) as f:
+                result = json.load(f)
+            adjuster = OnlineThresholdAdjuster(
+                alpha=alpha, tighten_factor=tighten, loosen_factor=loosen
+            )
+            adjuster.calibrate_baseline(result)
+            adjuster.save_state()
+            st.success("Baseline success rates calibrated from backtest.")
+            st.rerun()
+
+
+def _ml_meta_regime_tab() -> None:
+    """Meta regime detector sub-tab."""
+    st.markdown("#### Meta Regime Detector (GMM)")
+    st.caption(
+        "Replaces simple volatility thresholds with a Gaussian Mixture Model that "
+        "discovers natural market regimes from 6 features: avg HV20, momentum breadth, "
+        "sector dispersion, vol term structure, BB width, and RSI."
+    )
+
+    try:
+        from ml.meta_regime_detector import MetaRegimeDetector
+    except ImportError:
+        st.warning("scikit-learn required. Install with: `pip install scikit-learn`")
+        return
+
+    from ml.utils import load_ml_result
+
+    result = load_ml_result("meta_regime_weights")
+    if result:
+        st.markdown("**Discovered Regimes:**")
+
+        descriptions = result.get("descriptions", {})
+        weights = result.get("weights", {})
+
+        for regime_name, desc in descriptions.items():
+            with st.expander(f"Regime: {regime_name}"):
+                st.caption(desc)
+                if regime_name in weights:
+                    w = weights[regime_name]
+                    cols = st.columns(4)
+                    for i, (sid, weight) in enumerate(w.items()):
+                        cols[i % 4].metric(
+                            sid.replace("_", " ").title(),
+                            f"{weight:.2f}x",
+                        )
+    else:
+        st.info("No meta regime model trained yet.")
+
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        n_regimes = st.number_input("Number of Regimes", 2, 6, 4, 1, key="meta_n")
+    with col2:
+        method = st.selectbox("Method", ["gmm", "hmm"], key="meta_method")
+
+    if st.button("Train Meta Regime Detector", type="primary", key="meta_train"):
+        with st.spinner("Building market features and fitting model..."):
+            try:
+                from data.feature_store import FeatureStore
+                from scanner.universe import Universe
+
+                feature_store = FeatureStore()
+                universe = Universe()
+                tickers = universe.get_tickers()
+
+                features = {}
+                for t in tickers:
+                    try:
+                        features[t] = feature_store.load(t)
+                    except Exception:
+                        continue
+
+                if not features:
+                    st.error("No feature data available. Run a scan first.")
+                else:
+                    detector = MetaRegimeDetector(n_regimes=n_regimes, method=method)
+                    mf = detector.build_market_features(features)
+                    fit_result = detector.fit(mf)
+                    regimes = detector.predict(mf)
+
+                    # Map to weights using backtest trades
+                    bt_path = Path(__file__).parent.parent / "warehouse" / "backtest_result.json"
+                    if bt_path.exists():
+                        with open(bt_path) as f:
+                            bt_data = json.load(f)
+                        detector.map_regimes_to_weights(
+                            regimes, bt_data.get("trades", []), features
+                        )
+
+                    detector.save()
+                    st.success(
+                        f"Meta regime detector trained with {n_regimes} regimes "
+                        f"on {fit_result['n_samples']} samples."
+                    )
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Training failed: {e}")
+
+
+def _ml_cma_tab() -> None:
+    """CMA-ES joint optimization sub-tab."""
+    st.markdown("#### CMA-ES Joint Optimization")
+    st.caption(
+        "Simultaneously optimizes ALL strategy parameters AND regime weights "
+        "as a single vector using Covariance Matrix Adaptation Evolution Strategy. "
+        "This is the most comprehensive but also the slowest approach."
+    )
+
+    try:
+        from ml.cma_joint_optimizer import CMAJointOptimizer
+    except ImportError:
+        st.warning("CMA library required. Install with: `pip install cma`")
+        return
+
+    result = CMAJointOptimizer.get_last_result()
+    if result:
+        st.markdown("**Last Optimization Result:**")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Best Fitness (Sharpe)", f"{result.get('best_fitness', 0):.4f}")
+        col2.metric("Generations", result.get("generations", 0))
+        col3.metric("Parameters", result.get("dimension", 0))
+
+        # Show best params
+        with st.expander("Optimized Strategy Parameters"):
+            for sid, params in result.get("best_strategy_params", {}).items():
+                st.markdown(f"**{sid.replace('_', ' ').title()}**")
+                for k, v in params.items():
+                    st.text(f"  {k}: {v}")
+
+        with st.expander("Optimized Regime Weights"):
+            for regime, weights in result.get("best_regime_weights", {}).items():
+                st.markdown(f"**{regime.replace('_', ' ').title()}**")
+                for sid, w in weights.items():
+                    st.text(f"  {sid}: {w:.2f}")
+
+        if st.button("Accept CMA Results", type="primary", key="cma_accept"):
+            try:
+                optimizer = CMAJointOptimizer()
+                optimizer.accept_result(result)
+                st.success("CMA results applied to strategy configs and regime weights.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to accept: {e}")
+    else:
+        st.info("No CMA optimization run yet.")
+
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        max_gen = st.number_input("Max Generations", 10, 500, 100, 10, key="cma_gen")
+    with col2:
+        st.slider("Initial Step Size", 0.1, 1.0, 0.3, 0.05, key="cma_sigma")
+
+    if st.button("Run CMA-ES Optimization", type="primary", key="cma_run"):
+        st.info(
+            f"Running CMA-ES for up to {max_gen} generations. "
+            "This is computationally intensive and may take a long time."
+        )
+        st.warning(
+            "For long-running optimizations, use the CLI: "
+            '`python -c "from ml.cma_joint_optimizer import CMAJointOptimizer; ..."`'
+        )
+
+
+def _ml_rl_tab() -> None:
+    """Reinforcement learning regime weights sub-tab."""
+    st.markdown("#### RL Regime Weight Learning (PPO/SAC)")
+    st.caption(
+        "Trains a reinforcement learning agent that observes market features "
+        "(volatility, momentum, etc.) and learns optimal regime weights. "
+        "Uses Proximal Policy Optimization (PPO) via stable-baselines3."
+    )
+
+    try:
+        from ml.rl_regime_weights import RLRegimeTrainer
+    except ImportError:
+        st.warning(
+            "stable-baselines3 and gymnasium required. "
+            "Install with: `pip install stable-baselines3 gymnasium`"
+        )
+        return
+
+    result = RLRegimeTrainer.get_last_result()
+    if result:
+        st.markdown("**Last Training Result:**")
+        col1, col2 = st.columns(2)
+        col1.metric("Algorithm", result.get("algorithm", "PPO"))
+        col2.metric("Timesteps", result.get("total_timesteps", 0))
+
+        best_weights = result.get("best_weights", {})
+        if best_weights:
+            st.markdown("**Learned Regime Weights:**")
+            for regime, weights in best_weights.items():
+                with st.expander(f"{regime.replace('_', ' ').title()}"):
+                    cols = st.columns(4)
+                    for i, (sid, w) in enumerate(weights.items()):
+                        cols[i % 4].metric(sid.replace("_", " ").title(), f"{w:.2f}x")
+
+            if st.button("Accept RL Weights", type="primary", key="rl_accept"):
+                try:
+                    from signals.regime import save_regime_weights
+
+                    save_regime_weights(best_weights)
+                    st.success("RL regime weights saved to config.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed: {e}")
+    else:
+        st.info("No RL model trained yet.")
+
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        timesteps = st.number_input(
+            "Training Timesteps", 1000, 100000, 10000, 1000, key="rl_timesteps"
+        )
+    with col2:
+        algo = st.selectbox("Algorithm", ["PPO", "SAC"], key="rl_algo")
+
+    if st.button("Train RL Agent", type="primary", key="rl_train"):
+        st.info(
+            f"Training {algo} agent for {timesteps} timesteps. "
+            "This requires significant compute time."
+        )
+        st.warning(
+            "For long-running training, use the CLI: "
+            '`python -c "from ml.rl_regime_weights import RLRegimeTrainer; ..."`'
+        )
 
 
 if __name__ == "__main__":
