@@ -1237,16 +1237,105 @@ def _ml_optuna_tab() -> None:
                 )
 
     if st.button("Run Optimization", type="primary", key="optuna_run"):
-        st.info(
-            f"Running {n_trials} trials for {selected_strategy}. "
+        with st.spinner(
+            f"Running {n_trials} Optuna trials for "
+            f"{selected_strategy.replace('_', ' ').title()}. "
             "This may take several minutes..."
-        )
-        # Note: actual optimization requires data loading which is expensive.
-        # For now, show placeholder.
-        st.warning(
-            "To run optimization, use the CLI: "
-            '`python -c "from ml.optuna_dashboard import OptunaRunner; ..."`'
-        )
+        ):
+            try:
+                from data.feature_store import FeatureStore
+                from data.providers import YFinanceProvider
+                from data.warehouse import DataWarehouse
+                from scanner.universe import Universe
+                from signals.config_loader import build_config, load_strategy_configs
+
+                universe = Universe()
+                warehouse = DataWarehouse(provider=YFinanceProvider())
+                feature_store = FeatureStore(warehouse=warehouse)
+                configs = load_strategy_configs()
+
+                # Load data
+                target_tickers = universe.get_unique_tickers()
+                features_dict: dict = {}
+                prices_dict: dict = {}
+                for ticker in target_tickers:
+                    try:
+                        features_dict[ticker] = feature_store.load(ticker)
+                        prices_dict[ticker] = warehouse.load(ticker)
+                    except Exception:
+                        continue
+
+                if not features_dict:
+                    st.error("No feature data available. Run a scan first.")
+                else:
+                    # Build scan function for the selected strategy
+                    from signals.breakout import VolatilityBreakout
+                    from signals.catalyst import CatalystCapture
+                    from signals.mean_reversion import MeanReversion
+                    from signals.momentum_pairs import SectorMomentumPairs
+
+                    strategy_map = {
+                        "catalyst_capture": CatalystCapture,
+                        "volatility_breakout": VolatilityBreakout,
+                        "mean_reversion": MeanReversion,
+                        "sector_momentum": SectorMomentumPairs,
+                    }
+
+                    def scan_fn(feat_dict, params):
+                        merged = {**configs[selected_strategy], **params}
+                        cfg = build_config(selected_strategy, merged)
+                        strat = strategy_map[selected_strategy](config=cfg)
+                        signals = []
+                        for t, fdf in feat_dict.items():
+                            signals.extend(strat.scan(fdf, t))
+                        return signals
+
+                    result = runner.run(
+                        strategy_id=selected_strategy,
+                        scan_fn=scan_fn,
+                        prices=prices_dict,
+                        features=features_dict,
+                        n_trials=n_trials,
+                    )
+
+                    st.success(
+                        f"Optimization complete! Best Sharpe: {result.best_sharpe:.4f} "
+                        f"after {result.n_trials} trials."
+                    )
+
+                    # Show best params vs current
+                    st.markdown("**Optimized vs Current Parameters:**")
+                    comparison = []
+                    for k, v in result.best_params.items():
+                        current = result.current_params.get(k, "N/A")
+                        comparison.append(
+                            {
+                                "Parameter": k,
+                                "Current": current,
+                                "Optimized": v,
+                                "Change": (
+                                    f"{((v - float(current)) / float(current) * 100):+.1f}%"
+                                    if isinstance(current, (int, float)) and current != 0
+                                    else ""
+                                ),
+                            }
+                        )
+                    st.dataframe(
+                        pd.DataFrame(comparison),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                    if st.button(
+                        "Accept Optimized Parameters",
+                        type="primary",
+                        key="optuna_accept",
+                    ):
+                        runner.accept_result(result)
+                        st.success("Optimized parameters saved!")
+                        st.rerun()
+            except Exception as e:
+                st.error(f"Optimization failed: {e}")
 
 
 def _ml_xgboost_tab() -> None:
@@ -1561,14 +1650,70 @@ def _ml_cma_tab() -> None:
         st.slider("Initial Step Size", 0.1, 1.0, 0.3, 0.05, key="cma_sigma")
 
     if st.button("Run CMA-ES Optimization", type="primary", key="cma_run"):
-        st.info(
-            f"Running CMA-ES for up to {max_gen} generations. "
-            "This is computationally intensive and may take a long time."
-        )
-        st.warning(
-            "For long-running optimizations, use the CLI: "
-            '`python -c "from ml.cma_joint_optimizer import CMAJointOptimizer; ..."`'
-        )
+        with st.spinner(
+            f"Running CMA-ES for up to {max_gen} generations. " "This may take a long time..."
+        ):
+            try:
+                from data.feature_store import FeatureStore
+                from data.providers import YFinanceProvider
+                from data.warehouse import DataWarehouse
+                from scanner.universe import Universe
+
+                universe = Universe()
+                warehouse = DataWarehouse(provider=YFinanceProvider())
+                feature_store = FeatureStore(warehouse=warehouse)
+
+                target_tickers = universe.get_unique_tickers()
+                features_dict: dict = {}
+                prices_dict: dict = {}
+                for ticker in target_tickers:
+                    try:
+                        features_dict[ticker] = feature_store.load(ticker)
+                        prices_dict[ticker] = warehouse.load(ticker)
+                    except Exception:
+                        continue
+
+                if not features_dict:
+                    st.error("No feature data. Run a scan first.")
+                else:
+
+                    sigma0 = st.session_state.get("cma_sigma", 0.3)
+                    optimizer = CMAJointOptimizer(sigma0=sigma0)
+
+                    # Build a scan_fn for CMA fitness
+                    from signals.breakout import VolatilityBreakout
+                    from signals.catalyst import CatalystCapture
+                    from signals.config_loader import build_config
+                    from signals.mean_reversion import MeanReversion
+                    from signals.momentum_pairs import SectorMomentumPairs
+
+                    def cma_scan_fn(feat_dict, strategy_params, regime_weights):
+                        strat_map = {
+                            "catalyst_capture": CatalystCapture,
+                            "volatility_breakout": VolatilityBreakout,
+                            "mean_reversion": MeanReversion,
+                            "sector_momentum": SectorMomentumPairs,
+                        }
+                        all_signals = []
+                        for sid, cls in strat_map.items():
+                            cfg = build_config(sid, strategy_params.get(sid, {}))
+                            strat = cls(config=cfg)
+                            for t, fdf in feat_dict.items():
+                                all_signals.extend(strat.scan(fdf, t))
+                        return all_signals
+
+                    fitness_fn = CMAJointOptimizer.build_fitness_fn(
+                        cma_scan_fn, prices_dict, features_dict
+                    )
+                    cma_result = optimizer.optimize(fitness_fn, max_generations=max_gen)
+                    st.success(
+                        f"CMA-ES complete! Best fitness: "
+                        f"{cma_result['best_fitness']:.4f} "
+                        f"after {cma_result['generations']} generations."
+                    )
+                    st.rerun()
+            except Exception as e:
+                st.error(f"CMA-ES failed: {e}")
 
 
 def _ml_rl_tab() -> None:
@@ -1628,14 +1773,73 @@ def _ml_rl_tab() -> None:
         algo = st.selectbox("Algorithm", ["PPO", "SAC"], key="rl_algo")
 
     if st.button("Train RL Agent", type="primary", key="rl_train"):
-        st.info(
-            f"Training {algo} agent for {timesteps} timesteps. "
-            "This requires significant compute time."
-        )
-        st.warning(
-            "For long-running training, use the CLI: "
-            '`python -c "from ml.rl_regime_weights import RLRegimeTrainer; ..."`'
-        )
+        with st.spinner(
+            f"Training {algo} agent for {timesteps} timesteps. " "This may take a while..."
+        ):
+            try:
+                from data.feature_store import FeatureStore
+                from data.providers import YFinanceProvider
+                from data.warehouse import DataWarehouse
+                from ml.meta_regime_detector import MetaRegimeDetector
+                from ml.rl_regime_weights import RLRegimeTrainer, TradingRegimeEnv
+                from scanner.universe import Universe
+                from signals.breakout import VolatilityBreakout
+                from signals.catalyst import CatalystCapture
+                from signals.config_loader import build_config, load_strategy_configs
+                from signals.mean_reversion import MeanReversion
+                from signals.momentum_pairs import SectorMomentumPairs
+
+                universe = Universe()
+                warehouse = DataWarehouse(provider=YFinanceProvider())
+                feature_store = FeatureStore(warehouse=warehouse)
+                configs = load_strategy_configs()
+
+                target_tickers = universe.get_unique_tickers()
+                features_dict: dict = {}
+                prices_dict: dict = {}
+                for ticker in target_tickers:
+                    try:
+                        features_dict[ticker] = feature_store.load(ticker)
+                        prices_dict[ticker] = warehouse.load(ticker)
+                    except Exception:
+                        continue
+
+                if not features_dict:
+                    st.error("No feature data. Run a scan first.")
+                else:
+                    # Build market features for RL env
+                    meta = MetaRegimeDetector()
+                    market_features = meta.build_market_features(features_dict)
+
+                    def rl_scan_fn(feat_dict, strategy_params, regime_weights):
+                        strat_map = {
+                            "catalyst_capture": CatalystCapture,
+                            "volatility_breakout": VolatilityBreakout,
+                            "mean_reversion": MeanReversion,
+                            "sector_momentum": SectorMomentumPairs,
+                        }
+                        all_signals = []
+                        for sid, cls in strat_map.items():
+                            cfg = build_config(sid, strategy_params.get(sid, configs[sid]))
+                            strat = cls(config=cfg)
+                            for t, fdf in feat_dict.items():
+                                all_signals.extend(strat.scan(fdf, t))
+                        return all_signals
+
+                    env = TradingRegimeEnv(
+                        market_features=market_features,
+                        prices=prices_dict,
+                        features=features_dict,
+                        scan_fn=rl_scan_fn,
+                    )
+                    trainer = RLRegimeTrainer()
+                    trainer.train(env, total_timesteps=timesteps, algorithm=algo)
+                    st.success(
+                        f"RL training complete! Algorithm: {algo}, " f"Timesteps: {timesteps}"
+                    )
+                    st.rerun()
+            except Exception as e:
+                st.error(f"RL training failed: {e}")
 
 
 if __name__ == "__main__":
