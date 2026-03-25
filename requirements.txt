@@ -14,8 +14,11 @@ scipy>=1.11
 matplotlib>=3.8
 optuna>=3.4
 streamlit>=1.28
-# ML extras (optional but included for Streamlit Cloud deployment)
+# ML extras (all 6 ML Tuning features)
 xgboost>=2.0
 scikit-learn>=1.3
 joblib>=1.3
 cma>=3.3
+stable-baselines3>=2.2
+gymnasium>=0.29
+hmmlearn>=0.3
